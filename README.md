@@ -34,7 +34,9 @@ workspaces:
 cmux-kiro launch
 ```
 
-Done. Your entire workspace — tabs, colors, directories, agents — materialized in one shot.
+Done. Your entire workspace — tabs, colors, directories, agents, dev tools — materialized in one shot.
+
+Works with any command: `kiro-cli`, `k9s`, `lazygit`, `stern`, `htop`, or just a plain shell.
 
 ## Install
 
@@ -65,6 +67,45 @@ cmux-kiro launch
 
 # Validate config without launching
 cmux-kiro validate
+```
+
+## Examples
+
+**DevOps multi-tool setup:**
+
+```yaml
+workspaces:
+  - name: devops
+    color: "#4CAF50"
+    tabs:
+      - name: infra
+        dir: ~/projects/terraform
+        command: kiro-cli chat
+      - name: k9s-dev
+        command: k9s --context dev
+      - name: k9s-prod
+        command: k9s --context prod-legacy
+      - name: logs
+        command: stern -n default --context dev
+      - name: shell
+        dir: ~/projects
+```
+
+**Multi-agent workspace:**
+
+```yaml
+workspaces:
+  - name: agents
+    tabs:
+      - name: code
+        dir: ~/projects/my-app
+        command: kiro-cli chat
+        agent: developer
+      - name: review
+        dir: ~/projects/my-app
+        agent: reviewer
+      - name: jira
+        agent: jira
 ```
 
 ## Config Reference
