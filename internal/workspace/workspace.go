@@ -15,12 +15,23 @@ func Launch(cfg *config.Config) error {
 		return fmt.Errorf("cmux is not running — please start cmux first")
 	}
 
+	existing := getExistingWorkspaces()
+
 	var firstWsRef string
 
 	for _, ws := range cfg.Workspaces {
+		// Skip if workspace already exists.
+		if ref, ok := existing[ws.Name]; ok {
+			fmt.Printf("Skipping workspace: %s (already exists at %s)\n", ws.Name, ref)
+			if firstWsRef == "" {
+				firstWsRef = ref
+			}
+			continue
+		}
+
 		fmt.Printf("Creating workspace: %s\n", ws.Name)
 
-		// First tab: use new-workspace --command to launch directly.
+		// First tab: use new-workspace --command.
 		firstTab := ws.Tabs[0]
 		firstDir := expandHome(firstTab.Dir)
 		firstCmd := buildCommand(firstTab)
@@ -51,7 +62,7 @@ func Launch(cfg *config.Config) error {
 		}
 		fmt.Printf("  Tab: %s\n", firstTab.Name)
 
-		// Additional tabs: new-surface + respawn-pane.
+		// Additional tabs.
 		for j := 1; j < len(ws.Tabs); j++ {
 			tab := ws.Tabs[j]
 			surfRef, err := cmux.NewSurface(wsRef)
@@ -62,7 +73,6 @@ func Launch(cfg *config.Config) error {
 
 			_ = cmux.RenameTab(wsRef, surfRef, tab.Name)
 
-			// Build full command with cd if needed.
 			dir := expandHome(tab.Dir)
 			cmd := buildCommand(tab)
 			fullCmd := ""
@@ -77,18 +87,65 @@ func Launch(cfg *config.Config) error {
 			if fullCmd != "" {
 				_ = cmux.RespawnPane(wsRef, surfRef, fullCmd)
 			}
-
 			fmt.Printf("  Tab: %s\n", tab.Name)
 		}
 	}
 
-	// Focus first workspace.
 	if firstWsRef != "" {
 		_ = cmux.SelectWorkspace(firstWsRef)
 	}
 
 	fmt.Println("Done!")
 	return nil
+}
+
+// Destroy closes all workspaces defined in the config.
+func Destroy(cfg *config.Config) error {
+	if !cmux.Ping() {
+		return fmt.Errorf("cmux is not running")
+	}
+
+	existing := getExistingWorkspaces()
+	closed := 0
+
+	for _, ws := range cfg.Workspaces {
+		if ref, ok := existing[ws.Name]; ok {
+			if err := cmux.CloseWorkspace(ref); err != nil {
+				fmt.Printf("Warning: could not close %q: %v\n", ws.Name, err)
+			} else {
+				fmt.Printf("Closed: %s\n", ws.Name)
+				closed++
+			}
+		}
+	}
+
+	if closed == 0 {
+		fmt.Println("Nothing to close.")
+	} else {
+		fmt.Printf("Done! Closed %d workspace(s).\n", closed)
+	}
+	return nil
+}
+
+// getExistingWorkspaces returns a map of workspace name -> ref.
+func getExistingWorkspaces() map[string]string {
+	result := make(map[string]string)
+	out, err := cmux.ListWorkspaces()
+	if err != nil {
+		return result
+	}
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		// Format: "* workspace:10  name  [selected]" or "  workspace:10  name"
+		line = strings.TrimPrefix(line, "* ")
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && strings.HasPrefix(fields[0], "workspace:") {
+			ref := fields[0]
+			name := fields[1]
+			result[name] = ref
+		}
+	}
+	return result
 }
 
 // getFirstSurface retrieves the first surface ref of a workspace.

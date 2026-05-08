@@ -24,6 +24,8 @@ func main() {
 
 	root.AddCommand(initCmd())
 	root.AddCommand(launchCmd())
+	root.AddCommand(destroyCmd())
+	root.AddCommand(reloadCmd())
 	root.AddCommand(validateCmd())
 
 	if err := root.Execute(); err != nil {
@@ -70,6 +72,35 @@ func launchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			return workspace.Launch(cfg)
+		},
+	}
+}
+
+func destroyCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "destroy",
+		Short: "Close all workspaces defined in the config",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load(getConfigPath())
+			if err != nil {
+				return err
+			}
+			return workspace.Destroy(cfg)
+		},
+	}
+}
+
+func reloadCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "reload",
+		Short: "Destroy and re-launch all workspaces",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load(getConfigPath())
+			if err != nil {
+				return err
+			}
+			_ = workspace.Destroy(cfg)
 			return workspace.Launch(cfg)
 		},
 	}

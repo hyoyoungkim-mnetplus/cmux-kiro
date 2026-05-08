@@ -89,6 +89,12 @@ func SelectWorkspace(wsRef string) error {
 	return err
 }
 
+// CloseWorkspace closes a workspace.
+func CloseWorkspace(wsRef string) error {
+	_, err := Run("close-workspace", "--workspace", wsRef)
+	return err
+}
+
 // SetStatus sets a colored status indicator on a workspace sidebar.
 func SetStatus(wsRef string, label string, color string, icon string) error {
 	args := []string{"set-status", "project", label, "--color", color, "--workspace", wsRef}
