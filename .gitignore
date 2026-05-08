@@ -1,4 +1,4 @@
-cmux-kiro
+/cmux-kiro
 dist/
 *.exe
 .DS_Store
