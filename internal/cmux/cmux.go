@@ -77,7 +77,26 @@ func RenameTab(wsRef string, surfRef string, title string) error {
 
 // Send sends text to a surface.
 func Send(wsRef string, surfRef string, text string) error {
-	_, err := Run("send", "--workspace", wsRef, "--surface", surfRef, text)
+	args := []string{"send", "--workspace", wsRef}
+	if surfRef != "" {
+		args = append(args, "--surface", surfRef)
+	}
+	args = append(args, text)
+	_, err := Run(args...)
+	return err
+}
+
+// SendCommand sends text and presses Return to execute it.
+func SendCommand(wsRef string, surfRef string, command string) error {
+	if err := Send(wsRef, surfRef, command); err != nil {
+		return err
+	}
+	args := []string{"send-key", "--workspace", wsRef}
+	if surfRef != "" {
+		args = append(args, "--surface", surfRef)
+	}
+	args = append(args, "Return")
+	_, err := Run(args...)
 	return err
 }
 
