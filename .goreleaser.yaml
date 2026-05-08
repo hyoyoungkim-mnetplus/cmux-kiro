@@ -1,0 +1,38 @@
+version: 2
+
+builds:
+  - main: ./cmd/cmux-kiro
+    binary: cmux-kiro
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+brews:
+  - repository:
+      owner: hyoyoungkim-mnetplus
+      name: homebrew-tap
+    homepage: "https://github.com/hyoyoungkim-mnetplus/cmux-kiro"
+    description: "Declarative workspace manager for Kiro CLI + cmux"
+    license: "MIT"
+    install: |
+      bin.install "cmux-kiro"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
