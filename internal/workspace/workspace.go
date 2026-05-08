@@ -37,6 +37,13 @@ func Launch(cfg *config.Config) error {
 
 		// Rename workspace.
 		_ = cmux.RenameWorkspace(wsRef, ws.Name)
+		if ws.Color != "" {
+			label := ws.Label
+			if label == "" {
+				label = ws.Name
+			}
+			_ = cmux.SetStatus(wsRef, label, ws.Color, ws.Icon)
+		}
 		cmux.Wait()
 
 		// Track surface refs. First surface comes with the workspace.
@@ -57,6 +64,7 @@ func Launch(cfg *config.Config) error {
 				_ = cmux.RenameTab(wsRef, firstSurfRef, tab.Name)
 				cmd := buildCommand(tab)
 				if cmd != "" {
+					cmux.WaitForShell(wsRef, firstSurfRef)
 					_ = cmux.SendCommand(wsRef, firstSurfRef, cmd)
 				}
 			}
@@ -74,7 +82,7 @@ func Launch(cfg *config.Config) error {
 				continue
 			}
 			surfaceRefs = append(surfaceRefs, surfRef)
-			cmux.Wait()
+			cmux.WaitForShell(wsRef, surfRef)
 
 			_ = cmux.RenameTab(wsRef, surfRef, tab.Name)
 

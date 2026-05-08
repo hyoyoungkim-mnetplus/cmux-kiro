@@ -21,6 +21,8 @@ type Tab struct {
 type Workspace struct {
 	Name  string `yaml:"name"`
 	Color string `yaml:"color,omitempty"`
+	Icon  string `yaml:"icon,omitempty"`
+	Label string `yaml:"label,omitempty"`
 	Tabs  []Tab  `yaml:"tabs"`
 }
 

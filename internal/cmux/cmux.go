@@ -106,6 +106,16 @@ func SelectWorkspace(wsRef string) error {
 	return err
 }
 
+// SetStatus sets a colored status indicator on a workspace sidebar.
+func SetStatus(wsRef string, label string, color string, icon string) error {
+	args := []string{"set-status", "project", label, "--color", color, "--workspace", wsRef}
+	if icon != "" {
+		args = append(args, "--icon", icon)
+	}
+	_, err := Run(args...)
+	return err
+}
+
 // ListWorkspaces returns workspace list.
 func ListWorkspaces() (string, error) {
 	return Run("list-workspaces")
@@ -114,4 +124,15 @@ func ListWorkspaces() (string, error) {
 // Wait pauses briefly between cmux commands.
 func Wait() {
 	time.Sleep(300 * time.Millisecond)
+}
+
+// WaitForShell waits for a new shell to be ready by polling read-screen.
+func WaitForShell(wsRef, surfRef string) {
+	for i := 0; i < 10; i++ {
+		time.Sleep(300 * time.Millisecond)
+		out, err := Run("read-screen", "--workspace", wsRef, "--surface", surfRef, "--lines", "3")
+		if err == nil && (strings.Contains(out, ">") || strings.Contains(out, "$") || strings.Contains(out, "%") || strings.Contains(out, "#")) {
+			return
+		}
+	}
 }
