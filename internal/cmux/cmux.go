@@ -17,55 +17,82 @@ func Run(args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// ParseRef extracts a specific ref (e.g. "workspace:14") from cmux output like "OK workspace:14".
+func ParseRef(output, prefix string) string {
+	for _, part := range strings.Fields(output) {
+		if strings.HasPrefix(part, prefix+":") {
+			return part
+		}
+	}
+	return ""
+}
+
 // Ping checks if cmux is running.
 func Ping() bool {
 	_, err := Run("ping")
 	return err == nil
 }
 
-// CreateWorkspace creates a new cmux workspace.
-func CreateWorkspace(name string) error {
-	_, err := Run("workspace", "new", name)
-	return err
-}
-
-// CreateTab creates a new tab in the specified workspace.
-func CreateTab(workspace, name string) error {
-	_, err := Run("tab", "new", "--workspace", workspace, "--name", name)
-	return err
-}
-
-// SetTabColor sets the color of a tab.
-func SetTabColor(workspace, tab, color string) error {
-	_, err := Run("tab", "color", "--workspace", workspace, "--name", tab, "--color", color)
-	return err
-}
-
-// SendKeys sends keystrokes to a specific tab.
-func SendKeys(workspace, tab, keys string) error {
-	_, err := Run("send-keys", "--workspace", workspace, "--tab", tab, keys)
-	return err
-}
-
-// ListWorkspaces returns the list of current workspaces.
-func ListWorkspaces() ([]string, error) {
-	out, err := Run("workspace", "list")
+// NewWorkspace creates a new cmux workspace. Returns the workspace ref.
+func NewWorkspace(cwd string) (string, error) {
+	args := []string{"new-workspace"}
+	if cwd != "" {
+		args = append(args, "--cwd", cwd)
+	}
+	out, err := Run(args...)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	if out == "" {
-		return nil, nil
+	ref := ParseRef(out, "workspace")
+	if ref == "" {
+		return "", fmt.Errorf("could not parse workspace ref from: %s", out)
 	}
-	return strings.Split(out, "\n"), nil
+	return ref, nil
 }
 
-// FocusWorkspace switches focus to the specified workspace.
-func FocusWorkspace(name string) error {
-	_, err := Run("workspace", "focus", name)
+// RenameWorkspace renames a workspace.
+func RenameWorkspace(wsRef string, title string) error {
+	_, err := Run("rename-workspace", "--workspace", wsRef, title)
 	return err
+}
+
+// NewSurface creates a new tab (surface) in a workspace. Returns the surface ref.
+func NewSurface(wsRef string) (string, error) {
+	out, err := Run("new-surface", "--workspace", wsRef)
+	if err != nil {
+		return "", err
+	}
+	ref := ParseRef(out, "surface")
+	if ref == "" {
+		return "", fmt.Errorf("could not parse surface ref from: %s", out)
+	}
+	return ref, nil
+}
+
+// RenameTab renames a tab/surface.
+func RenameTab(wsRef string, surfRef string, title string) error {
+	_, err := Run("rename-tab", "--workspace", wsRef, "--surface", surfRef, title)
+	return err
+}
+
+// Send sends text to a surface.
+func Send(wsRef string, surfRef string, text string) error {
+	_, err := Run("send", "--workspace", wsRef, "--surface", surfRef, text)
+	return err
+}
+
+// SelectWorkspace focuses a workspace.
+func SelectWorkspace(wsRef string) error {
+	_, err := Run("select-workspace", "--workspace", wsRef)
+	return err
+}
+
+// ListWorkspaces returns workspace list.
+func ListWorkspaces() (string, error) {
+	return Run("list-workspaces")
 }
 
 // Wait pauses briefly between cmux commands.
 func Wait() {
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(300 * time.Millisecond)
 }
