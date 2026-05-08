@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"time"
 )
 
 // Run executes a cmux CLI command and returns the output.
@@ -17,7 +16,7 @@ func Run(args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// ParseRef extracts a specific ref (e.g. "workspace:14") from cmux output like "OK workspace:14".
+// ParseRef extracts a specific ref (e.g. "workspace:14") from cmux output.
 func ParseRef(output, prefix string) string {
 	for _, part := range strings.Fields(output) {
 		if strings.HasPrefix(part, prefix+":") {
@@ -34,10 +33,13 @@ func Ping() bool {
 }
 
 // NewWorkspace creates a new cmux workspace. Returns the workspace ref.
-func NewWorkspace(cwd string) (string, error) {
+func NewWorkspace(cwd string, command string) (string, error) {
 	args := []string{"new-workspace"}
 	if cwd != "" {
 		args = append(args, "--cwd", cwd)
+	}
+	if command != "" {
+		args = append(args, "--command", command)
 	}
 	out, err := Run(args...)
 	if err != nil {
@@ -75,28 +77,9 @@ func RenameTab(wsRef string, surfRef string, title string) error {
 	return err
 }
 
-// Send sends text to a surface.
-func Send(wsRef string, surfRef string, text string) error {
-	args := []string{"send", "--workspace", wsRef}
-	if surfRef != "" {
-		args = append(args, "--surface", surfRef)
-	}
-	args = append(args, text)
-	_, err := Run(args...)
-	return err
-}
-
-// SendCommand sends text and presses Return to execute it.
-func SendCommand(wsRef string, surfRef string, command string) error {
-	if err := Send(wsRef, surfRef, command); err != nil {
-		return err
-	}
-	args := []string{"send-key", "--workspace", wsRef}
-	if surfRef != "" {
-		args = append(args, "--surface", surfRef)
-	}
-	args = append(args, "Return")
-	_, err := Run(args...)
+// RespawnPane sends a command to a surface for execution.
+func RespawnPane(wsRef string, surfRef string, command string) error {
+	_, err := Run("respawn-pane", "--workspace", wsRef, "--surface", surfRef, "--command", command)
 	return err
 }
 
@@ -119,20 +102,4 @@ func SetStatus(wsRef string, label string, color string, icon string) error {
 // ListWorkspaces returns workspace list.
 func ListWorkspaces() (string, error) {
 	return Run("list-workspaces")
-}
-
-// Wait pauses briefly between cmux commands.
-func Wait() {
-	time.Sleep(300 * time.Millisecond)
-}
-
-// WaitForShell waits for a new shell to be ready by polling read-screen.
-func WaitForShell(wsRef, surfRef string) {
-	for i := 0; i < 10; i++ {
-		time.Sleep(300 * time.Millisecond)
-		out, err := Run("read-screen", "--workspace", wsRef, "--surface", surfRef, "--lines", "3")
-		if err == nil && (strings.Contains(out, ">") || strings.Contains(out, "$") || strings.Contains(out, "%") || strings.Contains(out, "#")) {
-			return
-		}
-	}
 }

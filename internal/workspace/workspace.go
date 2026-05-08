@@ -20,22 +20,21 @@ func Launch(cfg *config.Config) error {
 	for _, ws := range cfg.Workspaces {
 		fmt.Printf("Creating workspace: %s\n", ws.Name)
 
-		// Create workspace with first tab's directory.
-		var firstDir string
-		if len(ws.Tabs) > 0 {
-			firstDir = expandHome(ws.Tabs[0].Dir)
-		}
-		wsRef, err := cmux.NewWorkspace(firstDir)
+		// First tab: use new-workspace --command to launch directly.
+		firstTab := ws.Tabs[0]
+		firstDir := expandHome(firstTab.Dir)
+		firstCmd := buildCommand(firstTab)
+
+		wsRef, err := cmux.NewWorkspace(firstDir, firstCmd)
 		if err != nil {
 			return fmt.Errorf("failed to create workspace %q: %w", ws.Name, err)
 		}
-		cmux.Wait()
 
 		if firstWsRef == "" {
 			firstWsRef = wsRef
 		}
 
-		// Rename workspace.
+		// Rename workspace and set sidebar color.
 		_ = cmux.RenameWorkspace(wsRef, ws.Name)
 		if ws.Color != "" {
 			label := ws.Label
@@ -44,59 +43,42 @@ func Launch(cfg *config.Config) error {
 			}
 			_ = cmux.SetStatus(wsRef, label, ws.Color, ws.Icon)
 		}
-		cmux.Wait()
 
-		// Track surface refs. First surface comes with the workspace.
-		var surfaceRefs []string
-
-		// Get first surface ref from tree or create logic.
-		// The first surface is auto-created; we need its ref.
-		// Use new-surface output pattern: first surface isn't returned by new-workspace.
-		// We'll list pane-surfaces to find it.
+		// Rename first tab.
 		firstSurfRef := getFirstSurface(wsRef)
-		surfaceRefs = append(surfaceRefs, firstSurfRef)
-
-		// Handle first tab.
-		if len(ws.Tabs) > 0 {
-			tab := ws.Tabs[0]
-			fmt.Printf("  Tab: %s\n", tab.Name)
-			if firstSurfRef != "" {
-				_ = cmux.RenameTab(wsRef, firstSurfRef, tab.Name)
-				cmd := buildCommand(tab)
-				if cmd != "" {
-					cmux.WaitForShell(wsRef, firstSurfRef)
-					_ = cmux.SendCommand(wsRef, firstSurfRef, cmd)
-				}
-			}
-			cmux.Wait()
+		if firstSurfRef != "" {
+			_ = cmux.RenameTab(wsRef, firstSurfRef, firstTab.Name)
 		}
+		fmt.Printf("  Tab: %s\n", firstTab.Name)
 
-		// Create additional tabs.
+		// Additional tabs: new-surface + respawn-pane.
 		for j := 1; j < len(ws.Tabs); j++ {
 			tab := ws.Tabs[j]
-			fmt.Printf("  Tab: %s\n", tab.Name)
-
 			surfRef, err := cmux.NewSurface(wsRef)
 			if err != nil {
-				fmt.Printf("  Warning: could not create tab: %v\n", err)
+				fmt.Printf("  Warning: could not create tab %q: %v\n", tab.Name, err)
 				continue
 			}
-			surfaceRefs = append(surfaceRefs, surfRef)
-			cmux.WaitForShell(wsRef, surfRef)
 
 			_ = cmux.RenameTab(wsRef, surfRef, tab.Name)
 
-			// cd + command
+			// Build full command with cd if needed.
 			dir := expandHome(tab.Dir)
 			cmd := buildCommand(tab)
+			fullCmd := ""
 			if dir != "" && cmd != "" {
-				_ = cmux.SendCommand(wsRef, surfRef, fmt.Sprintf("cd %s && %s", dir, cmd))
+				fullCmd = fmt.Sprintf("cd %s && %s", dir, cmd)
 			} else if dir != "" {
-				_ = cmux.SendCommand(wsRef, surfRef, fmt.Sprintf("cd %s", dir))
+				fullCmd = fmt.Sprintf("cd %s", dir)
 			} else if cmd != "" {
-				_ = cmux.SendCommand(wsRef, surfRef, cmd)
+				fullCmd = cmd
 			}
-			cmux.Wait()
+
+			if fullCmd != "" {
+				_ = cmux.RespawnPane(wsRef, surfRef, fullCmd)
+			}
+
+			fmt.Printf("  Tab: %s\n", tab.Name)
 		}
 	}
 
@@ -105,7 +87,7 @@ func Launch(cfg *config.Config) error {
 		_ = cmux.SelectWorkspace(firstWsRef)
 	}
 
-	fmt.Println("Done! All workspaces launched.")
+	fmt.Println("Done!")
 	return nil
 }
 
@@ -115,7 +97,6 @@ func getFirstSurface(wsRef string) string {
 	if err != nil {
 		return ""
 	}
-	// Output contains surface refs like "surface:21"
 	return cmux.ParseRef(out, "surface")
 }
 
